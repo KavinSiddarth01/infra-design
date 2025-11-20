@@ -110,9 +110,39 @@
                     <!-- Step 1: Room Count -->
                     <div id="step1" class="step-content" style="display: none;">
                         <h2>Room Requirements</h2>
-                        <p class="step-description">Specify how many rooms and spaces you need in your floor plan.</p>
+                        <p class="step-description">Specify how many rooms you need and their sizes. You can customize dimensions for each room type.</p>
                         
-                        <div class="room-count-grid" id="roomCountGrid"></div>
+                        <!-- Floor Assignment Tabs -->
+                        <div class="tabs-container">
+                            <div class="tabs-list">
+                                <button class="tab-trigger active" onclick="switchTab('ground')">Ground Floor</button>
+                                <button class="tab-trigger" onclick="switchTab('first')">First Floor</button>
+                            </div>
+                            
+                            <div id="groundFloorTab" class="tab-content active">
+                                <div class="room-count-grid" id="groundFloorGrid"></div>
+                            </div>
+                            
+                            <div id="firstFloorTab" class="tab-content">
+                                <div class="room-count-grid" id="firstFloorGrid"></div>
+                            </div>
+                        </div>
+
+                        <!-- Room Size Customization -->
+                        <div class="room-sizes-section">
+                            <h3 class="section-title">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 3h18v18H3z"></path>
+                                    <path d="M3 9h18"></path>
+                                    <path d="M3 15h18"></path>
+                                    <path d="M9 3v18"></path>
+                                    <path d="M15 3v18"></path>
+                                </svg>
+                                Customize Room Sizes (Optional)
+                            </h3>
+                            <p class="section-description">Adjust the default dimensions for each room type (in feet)</p>
+                            <div id="roomSizesGrid" class="room-sizes-grid"></div>
+                        </div>
 
                         <div class="info-box">
                             <p id="totalRooms">Total Rooms: 0</p>
@@ -153,7 +183,7 @@
                                 </div>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" id="enableVastu" checked>
+                                <input type="checkbox" id="enableVastu" checked onchange="toggleVastuValidation()">
                                 <span class="slider"></span>
                             </label>
                         </div>
@@ -185,14 +215,57 @@
                             <div class="card">
                                 <div class="card-header">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
                                     </svg>
-                                    <h3>3D Floor Plan Blueprint</h3>
+                                    <h3>2D Architectural Floor Plans</h3>
                                 </div>
                                 <div class="card-body">
-                                    <canvas id="blueprintCanvas" width="1000" height="800"></canvas>
+                                    <div id="plotInfo" class="plot-info"></div>
+                                    <div id="blueprintContainer"></div>
+                                    
+                                    <!-- Legend -->
+                                    <div class="legend-container">
+                                        <h4>Color Legend</h4>
+                                        <div class="legend-grid">
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #fbbf24;"></div>
+                                                <span>Hall/Living</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #f97316;"></div>
+                                                <span>Kitchen</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #8b5cf6;"></div>
+                                                <span>Bedroom</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #10b981;"></div>
+                                                <span>Bathroom</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #06b6d4;"></div>
+                                                <span>Toilet</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #ef4444;"></div>
+                                                <span>Dining</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #22c55e;"></div>
+                                                <span>Garden</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #a78bfa;"></div>
+                                                <span>Balcony</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <div class="legend-color" style="background-color: #94a3b8;"></div>
+                                                <span>Store Room</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
