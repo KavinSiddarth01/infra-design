@@ -54,6 +54,9 @@ body {
 }
 
 .splash-icon-compass {
+    width: 34px;
+    height: 34px;
+    color: gold;
     top: 0;
     left: 18px;
     animation: iconRotate 2s ease-in-out infinite;
