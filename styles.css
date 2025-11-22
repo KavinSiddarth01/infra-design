@@ -54,9 +54,6 @@ body {
 }
 
 .splash-icon-compass {
-    width: 34px;
-    height: 34px;
-    color: gold;
     top: 0;
     left: 18px;
     animation: iconRotate 2s ease-in-out infinite;
@@ -823,17 +820,43 @@ input:checked + .slider:before {
 }
 
 .floor-plan {
-    margin-bottom: 3rem;
+    margin-bottom: 4rem;
 }
 
 .floor-title {
     font-size: 1.5rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     color: #1e293b;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 3px solid #667eea;
+}
+
+.floor-views-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.floor-view-section {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 2px solid #e2e8f0;
+}
+
+.view-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #cbd5e1;
+    text-align: center;
 }
 
 .floor-canvas-container {
@@ -842,6 +865,9 @@ input:checked + .slider:before {
     border-radius: 8px;
     padding: 1rem;
     overflow-x: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .floor-canvas {
@@ -1002,5 +1028,13 @@ input:checked + .slider:before {
 
     .legend-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .floor-views-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .floor-canvas-container {
+        overflow-x: auto;
     }
 }
