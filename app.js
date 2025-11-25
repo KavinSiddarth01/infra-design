@@ -14,6 +14,50 @@ const appState = {
 
 let currentView = '2d';
 
+// Room Adjacency Rules
+const ROOM_ADJACENCY = {
+    main_entrance: {
+        preferred: ['hall', 'garden'],
+        avoid: ['toilet', 'bathroom', 'kitchen']
+    },
+    hall: {
+        preferred: ['main_entrance', 'dining', 'balcony', 'garden'],
+        avoid: ['toilet', 'bathroom']
+    },
+    kitchen: {
+        preferred: ['dining', 'store_room'],
+        avoid: ['bedroom', 'toilet', 'bathroom']
+    },
+    dining: {
+        preferred: ['kitchen', 'hall'],
+        avoid: ['toilet', 'bathroom', 'bedroom']
+    },
+    bedroom: {
+        preferred: ['bathroom', 'balcony'],
+        avoid: ['kitchen', 'main_entrance', 'toilet']
+    },
+    bathroom: {
+        preferred: ['bedroom'],
+        avoid: ['kitchen', 'dining', 'hall', 'main_entrance']
+    },
+    toilet: {
+        preferred: ['bathroom'],
+        avoid: ['kitchen', 'dining', 'hall', 'main_entrance', 'bedroom']
+    },
+    balcony: {
+        preferred: ['hall', 'bedroom'],
+        avoid: ['toilet', 'bathroom']
+    },
+    garden: {
+        preferred: ['main_entrance', 'hall', 'balcony'],
+        avoid: ['toilet', 'bathroom']
+    },
+    store_room: {
+        preferred: ['kitchen'],
+        avoid: ['bedroom', 'hall']
+    }
+};
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
@@ -201,11 +245,16 @@ function renderRoomSelectionStep() {
         <div class="form-grid">
             <div class="form-group">
                 <label>Room Type</label>
-                <select id="roomType">
+                <select id="roomType" onchange="updateDefaultSize()">
                     ${Object.keys(ROOM_LABELS).map(type => 
                         `<option value="${type}">${ROOM_LABELS[type]}</option>`
                     ).join('')}
                 </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Size (sq ft)</label>
+                <input type="number" id="roomSize" value="${ROOM_SIZES[Object.keys(ROOM_LABELS)[0]]}" min="10" step="10" placeholder="Square feet">
             </div>
             
             <div class="form-group">
@@ -238,11 +287,17 @@ function renderRoomSelectionStep() {
                                 </span>
                             </div>
                             <div class="room-item-info">
-                                <span style="color: #64748b; font-size: 0.875rem;">
-                                    ${ROOM_SIZES[room.type] * room.count} sq ft
-                                </span>
+                                <input type="number" class="room-count-input" value="${room.size}" 
+                                    min="10" step="10" style="width: 80px;" onchange="updateRoomSize(${index}, this.value)"
+                                    title="Size (sq ft)">
+                                <span style="color: #64748b; font-size: 0.875rem; margin-left: 0.25rem;">sq ft</span>
+                                <span style="color: #64748b; font-size: 0.875rem; margin: 0 0.5rem;">×</span>
                                 <input type="number" class="room-count-input" value="${room.count}" 
-                                    min="1" onchange="updateRoomCount(${index}, this.value)">
+                                    min="1" style="width: 60px;" onchange="updateRoomCount(${index}, this.value)"
+                                    title="Count">
+                                <span style="color: #64748b; font-size: 0.875rem; margin-left: 0.5rem;">
+                                    = ${room.size * room.count} sq ft
+                                </span>
                                 <button class="btn-delete" onclick="removeRoom(${index})">
                                     <svg class="icon" viewBox="0 0 24 24">
                                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -281,18 +336,46 @@ function renderRoomSelectionStep() {
                 </div>
             </div>
         </div>
+        
+        <div class="info-box blue" style="margin-top: 1rem;">
+            <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <div class="info-content">
+                <h4>Room Size Guidelines</h4>
+                <div style="font-size: 0.875rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
+                    <div><strong>Bedroom:</strong> 120-180 sq ft</div>
+                    <div><strong>Kitchen:</strong> 80-150 sq ft</div>
+                    <div><strong>Hall:</strong> 150-300 sq ft</div>
+                    <div><strong>Dining:</strong> 100-150 sq ft</div>
+                    <div><strong>Bathroom:</strong> 40-80 sq ft</div>
+                    <div><strong>Toilet:</strong> 20-50 sq ft</div>
+                </div>
+            </div>
+        </div>
     `;
+}
+
+function updateDefaultSize() {
+    const roomType = document.getElementById('roomType').value;
+    const sizeInput = document.getElementById('roomSize');
+    if (sizeInput) {
+        sizeInput.value = ROOM_SIZES[roomType];
+    }
 }
 
 function addRoom() {
     const type = document.getElementById('roomType').value;
     const floor = parseInt(document.getElementById('roomFloor').value);
+    const size = parseInt(document.getElementById('roomSize').value) || ROOM_SIZES[type];
     
-    const existing = appState.rooms.find(r => r.type === type && r.floor === floor);
+    const existing = appState.rooms.find(r => r.type === type && r.floor === floor && r.size === size);
     if (existing) {
         existing.count++;
     } else {
-        appState.rooms.push({ type, count: 1, floor });
+        appState.rooms.push({ type, count: 1, floor, size });
     }
     
     renderStep();
@@ -313,8 +396,16 @@ function updateRoomCount(index, count) {
     }
 }
 
+function updateRoomSize(index, size) {
+    const newSize = parseInt(size);
+    if (newSize >= 10) {
+        appState.rooms[index].size = newSize;
+        renderStep();
+    }
+}
+
 function calculateTotalArea() {
-    return appState.rooms.reduce((sum, room) => sum + ROOM_SIZES[room.type] * room.count, 0);
+    return appState.rooms.reduce((sum, room) => sum + room.size * room.count, 0);
 }
 
 // Step 3: Zodiac & Vastu
@@ -535,21 +626,133 @@ function calculateVastuScore() {
     return Math.round((compliant / appState.directions.length) * 100);
 }
 
+// Advanced Room Layout Algorithm
+function generateRoomLayout(rooms, plotWidth, plotHeight) {
+    const layout = [];
+    const placedRooms = new Set();
+    
+    // Sort rooms by priority: entrance first, then by adjacency importance
+    const sortedRooms = [...rooms].sort((a, b) => {
+        if (a.type === 'main_entrance') return -1;
+        if (b.type === 'main_entrance') return 1;
+        if (a.type === 'hall') return -1;
+        if (b.type === 'hall') return 1;
+        return 0;
+    });
+    
+    sortedRooms.forEach(room => {
+        const direction = appState.directions.find(d => d.roomType === room.type);
+        const position = calculateRoomPosition(room, direction, layout, plotWidth, plotHeight);
+        
+        layout.push({
+            ...room,
+            ...position,
+            direction: direction?.direction || 'Center'
+        });
+    });
+    
+    return layout;
+}
+
+function calculateRoomPosition(room, direction, existingLayout, plotWidth, plotHeight) {
+    const roomSize = room.size || ROOM_SIZES[room.type];
+    const roomWidth = Math.sqrt(roomSize * 1.5);
+    const roomHeight = Math.sqrt(roomSize / 1.5);
+    
+    let x = plotWidth / 2 - roomWidth / 2;
+    let y = plotHeight / 2 - roomHeight / 2;
+    
+    if (direction) {
+        const dir = direction.direction.toLowerCase();
+        
+        // Position based on direction
+        if (dir.includes('north') && !dir.includes('south')) {
+            y = 0;
+        }
+        if (dir.includes('south')) {
+            y = plotHeight - roomHeight;
+        }
+        if (dir.includes('east')) {
+            x = plotWidth - roomWidth;
+        }
+        if (dir.includes('west') && !dir.includes('east')) {
+            x = 0;
+        }
+        if (dir.includes('northeast')) {
+            x = plotWidth - roomWidth;
+            y = 0;
+        }
+        if (dir.includes('northwest')) {
+            x = 0;
+            y = 0;
+        }
+        if (dir.includes('southeast')) {
+            x = plotWidth - roomWidth;
+            y = plotHeight - roomHeight;
+        }
+        if (dir.includes('southwest')) {
+            x = 0;
+            y = plotHeight - roomHeight;
+        }
+    }
+    
+    // Check for adjacency preferences
+    const adjacency = ROOM_ADJACENCY[room.type];
+    if (adjacency && adjacency.preferred.length > 0) {
+        for (const prefRoom of adjacency.preferred) {
+            const adjacent = existingLayout.find(r => r.type === prefRoom);
+            if (adjacent) {
+                // Position near preferred room
+                x = adjacent.x + adjacent.width;
+                y = adjacent.y;
+                break;
+            }
+        }
+    }
+    
+    // Avoid overlaps
+    let attempts = 0;
+    while (attempts < 10 && checkOverlap(x, y, roomWidth, roomHeight, existingLayout)) {
+        x += roomWidth * 0.3;
+        if (x + roomWidth > plotWidth) {
+            x = 0;
+            y += roomHeight * 0.3;
+        }
+        attempts++;
+    }
+    
+    return {
+        x: Math.max(0, Math.min(x, plotWidth - roomWidth)),
+        y: Math.max(0, Math.min(y, plotHeight - roomHeight)),
+        width: roomWidth,
+        height: roomHeight
+    };
+}
+
+function checkOverlap(x, y, width, height, layout) {
+    return layout.some(room => {
+        return !(x + width < room.x || 
+                x > room.x + room.width || 
+                y + height < room.y || 
+                y > room.y + room.height);
+    });
+}
+
 // Step 5: Visualization
 function renderVisualizationStep() {
     return `
         <h2>Floor Plan Visualization</h2>
-        <p class="card-subtitle">View your floor plan in 2D architectural view, 3D isometric view, or detailed report</p>
+        <p class="card-subtitle">View your realistic floor plan in 2D architectural view, 3D isometric view, or detailed report</p>
         
         <div class="view-toggle">
             <button class="btn ${currentView === '2d' ? 'btn-primary' : 'btn-secondary'}" onclick="changeView('2d')">
-                2D Floor Plan
+                📐 2D Floor Plan
             </button>
             <button class="btn ${currentView === '3d' ? 'btn-primary' : 'btn-secondary'}" onclick="changeView('3d')">
-                3D Isometric View
+                🏗️ 3D Isometric View
             </button>
             <button class="btn ${currentView === 'report' ? 'btn-primary' : 'btn-secondary'}" onclick="changeView('report')">
-                Detailed Report
+                📊 Detailed Report
             </button>
             <button class="btn btn-success" style="margin-left: auto;" onclick="exportPDF()">
                 <svg class="icon" viewBox="0 0 24 24">
@@ -572,9 +775,9 @@ function renderVisualizationStep() {
             <div class="info-content">
                 <h4>Visualization Guide</h4>
                 <p style="font-size: 0.875rem;">
-                    The 2D view shows an architectural blueprint with compass directions. The 3D view
-                    provides an isometric perspective showing floor separation. The report includes detailed
-                    area utilization and Vastu compliance analysis.
+                    The 2D view shows an architectural blueprint with walls, doors, windows, and furniture. 
+                    The 3D view provides a realistic isometric perspective with proper building structure and details.
+                    The report includes comprehensive area utilization and Vastu compliance analysis.
                 </p>
             </div>
         </div>
@@ -584,8 +787,6 @@ function renderVisualizationStep() {
 function changeView(view) {
     currentView = view;
     renderVisualizationContent();
-    
-    // Update button states in the DOM
     renderStep();
 }
 
@@ -594,7 +795,7 @@ function renderVisualizationContent() {
     
     if (currentView === '2d') {
         container.innerHTML = `
-            <h3 style="margin-bottom: 1rem;">2D Architectural Floor Plan</h3>
+            <h3 style="margin-bottom: 1rem;">2D Architectural Floor Plan with Details</h3>
             <canvas id="canvas2d"></canvas>
             <div class="legend">
                 ${Object.keys(ROOM_COLORS).map(type => `
@@ -608,12 +809,12 @@ function renderVisualizationContent() {
         setTimeout(() => draw2DFloorPlan(), 100);
     } else if (currentView === '3d') {
         container.innerHTML = `
-            <h3 style="margin-bottom: 1rem;">3D Isometric Building View</h3>
+            <h3 style="margin-bottom: 1rem;">3D Realistic Isometric Building View</h3>
             <canvas id="canvas3d"></canvas>
             <div class="info-box blue" style="margin-top: 1rem;">
                 <p style="font-size: 0.875rem;">
-                    Ground floor shown at base level. First floor (if present) shown elevated above.
-                    Rotate perspective mentally to visualize different angles.
+                    Ground floor shown with complete structure. First floor (if present) shown elevated with roof.
+                    Walls, windows, doors, and architectural details are included for realism.
                 </p>
             </div>
         `;
@@ -623,134 +824,409 @@ function renderVisualizationContent() {
     }
 }
 
-// 2D Floor Plan Drawing
+// Enhanced 2D Floor Plan with walls, doors, windows
 function draw2DFloorPlan() {
     const canvas = document.getElementById('canvas2d');
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    const width = Math.min(1200, window.innerWidth - 100);
-    const height = 700;
+    const width = Math.min(1400, window.innerWidth - 100);
+    const height = 800;
     canvas.width = width;
     canvas.height = height;
     
     ctx.clearRect(0, 0, width, height);
     
-    const padding = 60;
+    const padding = 80;
     const plotWidth = width - padding * 2;
     const plotHeight = height - padding * 2;
     
-    // Draw plot boundary
+    // Background
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw plot boundary with shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(padding, padding, plotWidth, plotHeight);
+    ctx.shadowColor = 'transparent';
+    
     ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.strokeRect(padding, padding, plotWidth, plotHeight);
     
-    // Draw compass
+    // Draw compass rose
+    drawCompassRose(ctx, width / 2, padding - 40, 30);
+    
+    // Draw directional labels
     ctx.fillStyle = '#475569';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('N ↑', width / 2, padding - 30);
-    ctx.fillText('S ↓', width / 2, height - padding + 45);
+    ctx.fillText('NORTH', width / 2, padding - 50);
+    ctx.fillText('SOUTH', width / 2, height - padding + 70);
+    
     ctx.save();
-    ctx.translate(padding - 35, height / 2);
+    ctx.translate(padding - 60, height / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText('W ←', 0, 0);
-    ctx.restore();
-    ctx.save();
-    ctx.translate(width - padding + 35, height / 2);
-    ctx.rotate(Math.PI / 2);
-    ctx.fillText('E →', 0, 0);
+    ctx.fillText('WEST', 0, 0);
     ctx.restore();
     
-    // Draw rooms
+    ctx.save();
+    ctx.translate(width - padding + 60, height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText('EAST', 0, 0);
+    ctx.restore();
+    
+    // Draw grid
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i < 10; i++) {
+        const x = padding + (plotWidth / 10) * i;
+        const y = padding + (plotHeight / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, padding);
+        ctx.lineTo(x, padding + plotHeight);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(padding + plotWidth, y);
+        ctx.stroke();
+    }
+    
+    // Draw rooms by floor
     const groundFloor = appState.rooms.filter(r => r.floor === 1);
     const firstFloor = appState.rooms.filter(r => r.floor === 2);
     
-    drawFloor2D(ctx, groundFloor, padding, padding, plotWidth, plotHeight, 'Ground Floor');
+    const groundLayout = generateRoomLayout(groundFloor, plotWidth, plotHeight);
     
-    if (firstFloor.length > 0) {
-        // Draw first floor to the right
-        const offsetX = plotWidth + padding + 40;
-        if (offsetX + plotWidth <= width * 2) {
-            // Expand canvas if needed
-            canvas.width = offsetX + plotWidth + padding;
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(offsetX, padding, plotWidth, plotHeight);
-            drawFloor2D(ctx, firstFloor, offsetX, padding, plotWidth, plotHeight, 'First Floor');
-        }
-    }
+    ctx.save();
+    ctx.translate(padding, padding);
+    drawFloor2DRealistic(ctx, groundLayout, plotWidth, plotHeight, 'GROUND FLOOR');
+    ctx.restore();
+    
+    // Add scale
+    drawScale(ctx, padding, height - padding + 40, 100);
 }
 
-function drawFloor2D(ctx, rooms, startX, startY, width, height, label) {
+function drawCompassRose(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Outer circle
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, size, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // North arrow (red)
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(0, -size);
+    ctx.lineTo(-size * 0.3, 0);
+    ctx.lineTo(0, -size * 0.6);
+    ctx.lineTo(size * 0.3, 0);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Cardinal directions
     ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(label, startX + width / 2, startY - 10);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('N', 0, -size - 15);
+    ctx.fillText('S', 0, size + 15);
+    ctx.fillText('E', size + 15, 0);
+    ctx.fillText('W', -size - 15, 0);
     
-    const cols = Math.ceil(Math.sqrt(rooms.length));
-    const rows = Math.ceil(rooms.length / cols);
-    const cellWidth = width / cols;
-    const cellHeight = height / rows;
+    ctx.restore();
+}
+
+function drawScale(ctx, x, y, length) {
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '12px sans-serif';
     
-    rooms.forEach((room, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        let x = startX + col * cellWidth;
-        let y = startY + row * cellHeight;
-        
-        // Position based on direction
-        const direction = appState.directions.find(d => d.roomType === room.type);
-        if (direction) {
-            const dir = direction.direction.toLowerCase();
-            if (dir.includes('north') && !dir.includes('south')) y = startY;
-            if (dir.includes('south')) y = startY + height - cellHeight;
-            if (dir.includes('east')) x = startX + width - cellWidth;
-            if (dir.includes('west') && !dir.includes('east')) x = startX;
-        }
-        
+    // Scale line
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + length, y);
+    ctx.stroke();
+    
+    // Ticks
+    for (let i = 0; i <= 4; i++) {
+        const tickX = x + (length / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(tickX, y - 5);
+        ctx.lineTo(tickX, y + 5);
+        ctx.stroke();
+    }
+    
+    ctx.textAlign = 'center';
+    ctx.fillText('0', x, y + 20);
+    ctx.fillText('5 ft', x + length / 2, y + 20);
+    ctx.fillText('10 ft', x + length, y + 20);
+}
+
+function drawFloor2DRealistic(ctx, roomLayout, plotWidth, plotHeight, label) {
+    // Draw floor label
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, 10, -20);
+    
+    // Draw each room with realistic details
+    roomLayout.forEach((room, index) => {
         const color = ROOM_COLORS[room.type];
-        ctx.fillStyle = color + '40';
-        ctx.fillRect(x + 2, y + 2, cellWidth - 4, cellHeight - 4);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 2, y + 2, cellWidth - 4, cellHeight - 4);
         
+        // Room floor
+        ctx.fillStyle = color + '15';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+        
+        // Walls
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(room.x, room.y, room.width, room.height);
+        
+        // Add doors
+        drawDoor(ctx, room, roomLayout);
+        
+        // Add windows based on direction
+        drawWindows(ctx, room);
+        
+        // Add furniture/fixtures
+        drawFurniture(ctx, room);
+        
+        // Room label
         ctx.fillStyle = '#1e293b';
-        ctx.font = '12px sans-serif';
+        ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(ROOM_LABELS[room.type], x + cellWidth / 2, y + cellHeight / 2 - 5);
+        ctx.textBaseline = 'top';
+        ctx.fillText(ROOM_LABELS[room.type], room.x + room.width / 2, room.y + 10);
         
-        if (direction) {
-            ctx.fillStyle = '#475569';
-            ctx.font = '10px sans-serif';
-            ctx.fillText(direction.direction, x + cellWidth / 2, y + cellHeight / 2 + 10);
-        }
-        
-        if (room.count > 1) {
+        // Direction label
+        if (room.direction) {
             ctx.fillStyle = color;
-            ctx.font = 'bold 10px sans-serif';
-            ctx.fillText(`×${room.count}`, x + cellWidth / 2, y + cellHeight / 2 + 25);
+            ctx.font = '11px sans-serif';
+            ctx.fillText(room.direction, room.x + room.width / 2, room.y + 30);
         }
+        
+        // Area label
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`${room.size || ROOM_SIZES[room.type]} sq ft`, room.x + room.width / 2, room.y + room.height - 10);
     });
 }
 
-// 3D Floor Plan Drawing
+function drawDoor(ctx, room, allRooms) {
+    const doorWidth = 20;
+    const doorColor = '#8b4513';
+    
+    // Determine door position based on adjacency
+    let doorX, doorY, doorAngle = 0;
+    
+    // Default: door on the side facing center or main entrance
+    if (room.type === 'main_entrance') {
+        // Main entrance on front wall
+        doorX = room.x + room.width / 2 - doorWidth / 2;
+        doorY = room.y;
+        doorAngle = 0;
+    } else {
+        // Interior doors
+        doorX = room.x;
+        doorY = room.y + room.height / 2 - doorWidth / 2;
+        doorAngle = Math.PI / 2;
+    }
+    
+    ctx.save();
+    ctx.translate(doorX + doorWidth / 2, doorY + doorWidth / 2);
+    ctx.rotate(doorAngle);
+    
+    // Door
+    ctx.fillStyle = doorColor;
+    ctx.fillRect(-doorWidth / 2, -3, doorWidth, 6);
+    
+    // Door arc (opening)
+    ctx.strokeStyle = doorColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(-doorWidth / 2, 0, doorWidth, -Math.PI / 2, 0);
+    ctx.stroke();
+    
+    // Door handle
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(doorWidth / 3, 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
+function drawWindows(ctx, room) {
+    const windowWidth = 15;
+    const windowColor = '#60a5fa';
+    const dir = room.direction?.toLowerCase() || '';
+    
+    // Draw windows on exterior walls based on direction
+    if (dir.includes('north')) {
+        // Window on north wall
+        drawWindow(ctx, room.x + room.width / 2 - windowWidth / 2, room.y, windowWidth, false);
+    }
+    if (dir.includes('south')) {
+        // Window on south wall
+        drawWindow(ctx, room.x + room.width / 2 - windowWidth / 2, room.y + room.height, windowWidth, false);
+    }
+    if (dir.includes('east')) {
+        // Window on east wall
+        drawWindow(ctx, room.x + room.width, room.y + room.height / 2 - windowWidth / 2, windowWidth, true);
+    }
+    if (dir.includes('west')) {
+        // Window on west wall
+        drawWindow(ctx, room.x, room.y + room.height / 2 - windowWidth / 2, windowWidth, true);
+    }
+}
+
+function drawWindow(ctx, x, y, size, vertical) {
+    ctx.strokeStyle = '#3b82f6';
+    ctx.fillStyle = '#bfdbfe';
+    ctx.lineWidth = 2;
+    
+    if (vertical) {
+        ctx.fillRect(x - 2, y, 4, size);
+        ctx.strokeRect(x - 2, y, 4, size);
+        // Panes
+        ctx.beginPath();
+        ctx.moveTo(x, y + size / 2);
+        ctx.lineTo(x, y + size / 2);
+        ctx.stroke();
+    } else {
+        ctx.fillRect(x, y - 2, size, 4);
+        ctx.strokeRect(x, y - 2, size, 4);
+        // Panes
+        ctx.beginPath();
+        ctx.moveTo(x + size / 2, y);
+        ctx.lineTo(x + size / 2, y);
+        ctx.stroke();
+    }
+}
+
+function drawFurniture(ctx, room) {
+    const furnitureColor = '#94a3b8';
+    const centerX = room.x + room.width / 2;
+    const centerY = room.y + room.height / 2;
+    
+    ctx.fillStyle = furnitureColor;
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1;
+    
+    switch (room.type) {
+        case 'bedroom':
+            // Bed
+            ctx.fillRect(centerX - 20, centerY - 15, 40, 30);
+            ctx.strokeRect(centerX - 20, centerY - 15, 40, 30);
+            // Pillows
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(centerX - 18, centerY - 13, 15, 8);
+            ctx.fillRect(centerX + 3, centerY - 13, 15, 8);
+            break;
+            
+        case 'kitchen':
+            // Counter
+            ctx.fillRect(room.x + 5, room.y + 5, room.width - 10, 15);
+            ctx.strokeRect(room.x + 5, room.y + 5, room.width - 10, 15);
+            // Stove
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(centerX - 10, room.y + 7, 20, 11);
+            ctx.strokeRect(centerX - 10, room.y + 7, 20, 11);
+            break;
+            
+        case 'dining':
+            // Table
+            ctx.fillRect(centerX - 25, centerY - 20, 50, 40);
+            ctx.strokeRect(centerX - 25, centerY - 20, 50, 40);
+            // Chairs (simple circles)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY - 25, 5, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY + 25, 5, 0, Math.PI * 2);
+            ctx.arc(centerX - 30, centerY, 5, 0, Math.PI * 2);
+            ctx.arc(centerX + 30, centerY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+            
+        case 'hall':
+            // Sofa
+            ctx.fillRect(centerX - 30, centerY + 10, 60, 15);
+            ctx.strokeRect(centerX - 30, centerY + 10, 60, 15);
+            // Coffee table
+            ctx.fillRect(centerX - 20, centerY - 10, 40, 15);
+            ctx.strokeRect(centerX - 20, centerY - 10, 40, 15);
+            break;
+            
+        case 'bathroom':
+        case 'toilet':
+            // Toilet
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Sink
+            ctx.beginPath();
+            ctx.arc(room.x + 15, room.y + 15, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            break;
+            
+        case 'balcony':
+            // Railing
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(room.x + 10 + i * 15, room.y + 5);
+                ctx.lineTo(room.x + 10 + i * 15, room.y + 25);
+                ctx.stroke();
+            }
+            break;
+            
+        case 'garden':
+            // Plants
+            ctx.fillStyle = '#22c55e';
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(room.x + 20 + i * 25, room.y + 20, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            break;
+    }
+}
+
+// Enhanced 3D Floor Plan with realistic building
 function draw3DFloorPlan() {
     const canvas = document.getElementById('canvas3d');
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    const width = Math.min(1200, window.innerWidth - 100);
-    const height = 700;
+    const width = Math.min(1400, window.innerWidth - 100);
+    const height = 900;
     canvas.width = width;
     canvas.height = height;
     
     ctx.clearRect(0, 0, width, height);
     
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#e0f2fe');
+    gradient.addColorStop(1, '#f0f9ff');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
     const centerX = width / 2;
-    const centerY = height / 2 - 50;
-    const scale = 3;
+    const centerY = height / 2 + 50;
+    const scale = 4;
     
     const toIso = (x, y, z) => ({
         x: centerX + (x - y) * scale,
@@ -759,73 +1235,304 @@ function draw3DFloorPlan() {
     
     const plotSize = Math.sqrt(appState.plotData.sizeInSqFt);
     
-    // Draw ground
-    ctx.fillStyle = '#e2e8f0';
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 2;
+    // Draw ground/lawn
+    drawGround(ctx, toIso, plotSize * 1.2);
     
-    const corners = [
-        toIso(0, 0, 0),
-        toIso(plotSize, 0, 0),
-        toIso(plotSize, plotSize, 0),
-        toIso(0, plotSize, 0)
+    // Draw plot boundary (compound wall)
+    drawCompoundWall(ctx, toIso, plotSize);
+    
+    // Draw building
+    const groundFloor = appState.rooms.filter(r => r.floor === 1);
+    const firstFloor = appState.rooms.filter(r => r.floor === 2);
+    
+    const groundLayout = generateRoomLayout(groundFloor, plotSize, plotSize);
+    
+    // Draw foundation
+    drawFoundation(ctx, toIso, plotSize);
+    
+    // Draw ground floor
+    drawFloor3DRealistic(ctx, toIso, groundLayout, plotSize, 0, 40);
+    
+    // Draw first floor if exists
+    if (firstFloor.length > 0) {
+        const firstLayout = generateRoomLayout(firstFloor, plotSize, plotSize);
+        drawFloor3DRealistic(ctx, toIso, firstLayout, plotSize, 40, 40);
+        // Draw roof
+        drawRoof(ctx, toIso, plotSize, 80);
+    } else {
+        // Draw roof for ground floor only
+        drawRoof(ctx, toIso, plotSize, 40);
+    }
+    
+    // Draw compass
+    drawCompass3D(ctx, 120, height - 120);
+    
+    // Add sun
+    drawSun(ctx, width - 100, 100);
+    
+    // Add trees around
+    drawTree(ctx, toIso, -plotSize * 0.3, -plotSize * 0.3, 0);
+    drawTree(ctx, toIso, plotSize * 1.3, -plotSize * 0.2, 0);
+}
+
+function drawGround(ctx, toIso, size) {
+    // Lawn
+    const groundCorners = [
+        toIso(-size * 0.2, -size * 0.2, 0),
+        toIso(size * 1.2, -size * 0.2, 0),
+        toIso(size * 1.2, size * 1.2, 0),
+        toIso(-size * 0.2, size * 1.2, 0)
     ];
     
+    ctx.fillStyle = '#86efac';
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(corners[0].x, corners[0].y);
-    corners.forEach(c => ctx.lineTo(c.x, c.y));
+    ctx.moveTo(groundCorners[0].x, groundCorners[0].y);
+    groundCorners.forEach(c => ctx.lineTo(c.x, c.y));
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
     
-    // Draw floors
-    const groundFloor = appState.rooms.filter(r => r.floor === 1);
-    const firstFloor = appState.rooms.filter(r => r.floor === 2);
-    
-    drawFloor3D(ctx, toIso, groundFloor, plotSize, 0, 30);
-    if (firstFloor.length > 0) {
-        drawFloor3D(ctx, toIso, firstFloor, plotSize, 30, 30);
+    // Grass pattern
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 20; i++) {
+        const p1 = toIso(-size * 0.2 + Math.random() * size * 1.4, -size * 0.2 + Math.random() * size * 1.4, 0);
+        const p2 = toIso(-size * 0.2 + Math.random() * size * 1.4, -size * 0.2 + Math.random() * size * 1.4, 0);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
     }
-    
-    // Draw compass
-    drawCompass3D(ctx, 100, height - 100);
 }
 
-function drawFloor3D(ctx, toIso, rooms, plotSize, floorZ, floorHeight) {
-    const cols = Math.ceil(Math.sqrt(rooms.length));
-    const rows = Math.ceil(rooms.length / cols);
-    const cellWidth = plotSize / cols;
-    const cellDepth = plotSize / rows;
+function drawCompoundWall(ctx, toIso, size) {
+    const wallHeight = 5;
+    const offset = -2;
     
-    rooms.forEach((room, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        const x = col * cellWidth;
-        const y = row * cellDepth;
-        
+    // Wall color
+    ctx.fillStyle = '#d6d3d1';
+    ctx.strokeStyle = '#78716c';
+    ctx.lineWidth = 1.5;
+    
+    // Front wall (with gate opening)
+    const gateWidth = size * 0.2;
+    const gateStart = size * 0.4;
+    
+    // Left section of front wall
+    drawWallSection(ctx, toIso, offset, offset, gateStart, offset, wallHeight);
+    // Right section of front wall
+    drawWallSection(ctx, toIso, gateStart + gateWidth, offset, size - offset, offset, wallHeight);
+    // Back wall
+    drawWallSection(ctx, toIso, offset, size - offset, size - offset, size - offset, wallHeight);
+    // Left wall
+    drawWallSection(ctx, toIso, offset, offset, offset, size - offset, wallHeight);
+    // Right wall
+    drawWallSection(ctx, toIso, size - offset, offset, size - offset, size - offset, wallHeight);
+    
+    // Gate posts
+    drawBox3DRealistic(ctx, toIso, gateStart - 1, offset - 1, 0, 2, 2, wallHeight, '#78716c');
+    drawBox3DRealistic(ctx, toIso, gateStart + gateWidth - 1, offset - 1, 0, 2, 2, wallHeight, '#78716c');
+}
+
+function drawWallSection(ctx, toIso, x1, y1, x2, y2, height) {
+    const steps = Math.abs(x2 - x1) + Math.abs(y2 - y1);
+    const dx = (x2 - x1) / steps;
+    const dy = (y2 - y1) / steps;
+    
+    for (let i = 0; i < steps; i += 2) {
+        const x = x1 + dx * i;
+        const y = y1 + dy * i;
+        drawBox3DRealistic(ctx, toIso, x, y, 0, 2, 1, height, '#d6d3d1');
+    }
+}
+
+function drawFoundation(ctx, toIso, size) {
+    const foundationHeight = 2;
+    
+    ctx.fillStyle = '#a8a29e';
+    ctx.strokeStyle = '#78716c';
+    ctx.lineWidth = 1;
+    
+    // Foundation base
+    const base = [
+        toIso(0, 0, 0),
+        toIso(size, 0, 0),
+        toIso(size, size, 0),
+        toIso(0, size, 0)
+    ];
+    
+    ctx.beginPath();
+    ctx.moveTo(base[0].x, base[0].y);
+    base.forEach(b => ctx.lineTo(b.x, b.y));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // Foundation walls
+    drawBox3DRealistic(ctx, toIso, 0, 0, 0, size, size, foundationHeight, '#a8a29e');
+}
+
+function drawFloor3DRealistic(ctx, toIso, roomLayout, plotSize, floorZ, floorHeight) {
+    const wallThickness = 1;
+    
+    // Draw exterior walls first
+    drawBox3DRealistic(ctx, toIso, 0, 0, floorZ, plotSize, plotSize, floorHeight, '#e7e5e4', true);
+    
+    // Draw each room
+    roomLayout.forEach((room, index) => {
         const color = ROOM_COLORS[room.type];
-        drawBox3D(ctx, toIso, x, y, floorZ, cellWidth, cellDepth, floorHeight, color);
         
-        const labelPos = toIso(x + cellWidth / 2, y + cellDepth / 2, floorZ + floorHeight);
+        // Room floor
+        const floor = [
+            toIso(room.x, room.y, floorZ),
+            toIso(room.x + room.width, room.y, floorZ),
+            toIso(room.x + room.width, room.y + room.height, floorZ),
+            toIso(room.x, room.y + room.height, floorZ)
+        ];
+        
+        ctx.fillStyle = color + '30';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(floor[0].x, floor[0].y);
+        floor.forEach(f => ctx.lineTo(f.x, f.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Interior walls
+        ctx.strokeStyle = '#a8a29e';
+        ctx.lineWidth = 2;
+        
+        // Draw wall sections
+        const wallPoints = [
+            [toIso(room.x, room.y, floorZ), toIso(room.x, room.y, floorZ + floorHeight)],
+            [toIso(room.x + room.width, room.y, floorZ), toIso(room.x + room.width, room.y, floorZ + floorHeight)],
+            [toIso(room.x + room.width, room.y + room.height, floorZ), toIso(room.x + room.width, room.y + room.height, floorZ + floorHeight)],
+            [toIso(room.x, room.y + room.height, floorZ), toIso(room.x, room.y + room.height, floorZ + floorHeight)]
+        ];
+        
+        wallPoints.forEach(wall => {
+            ctx.beginPath();
+            ctx.moveTo(wall[0].x, wall[0].y);
+            ctx.lineTo(wall[1].x, wall[1].y);
+            ctx.stroke();
+        });
+        
+        // Draw windows on exterior walls
+        if (room.x === 0 || room.x + room.width === plotSize || 
+            room.y === 0 || room.y + room.height === plotSize) {
+            drawWindow3D(ctx, toIso, room, floorZ, floorHeight);
+        }
+        
+        // Room label
+        const labelPos = toIso(room.x + room.width / 2, room.y + room.height / 2, floorZ + floorHeight + 5);
         ctx.fillStyle = '#1e293b';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(ROOM_LABELS[room.type], labelPos.x, labelPos.y - 5);
-        
-        const direction = appState.directions.find(d => d.roomType === room.type);
-        if (direction) {
-            ctx.fillStyle = '#475569';
-            ctx.font = '9px sans-serif';
-            ctx.fillText(direction.direction, labelPos.x, labelPos.y + 8);
-        }
+        ctx.fillText(ROOM_LABELS[room.type], labelPos.x, labelPos.y);
     });
 }
 
-function drawBox3D(ctx, toIso, x, y, z, width, depth, height, color) {
-    // Top
-    ctx.fillStyle = color + 'CC';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
+function drawWindow3D(ctx, toIso, room, floorZ, floorHeight) {
+    const windowHeight = floorHeight * 0.4;
+    const windowZ = floorZ + floorHeight * 0.3;
+    const windowWidth = 8;
+    
+    ctx.fillStyle = '#bfdbfe';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 1;
+    
+    // Window on appropriate wall
+    const centerX = room.x + room.width / 2;
+    const centerY = room.y + room.height / 2;
+    
+    const w1 = toIso(centerX - windowWidth / 2, room.y, windowZ);
+    const w2 = toIso(centerX + windowWidth / 2, room.y, windowZ);
+    const w3 = toIso(centerX + windowWidth / 2, room.y, windowZ + windowHeight);
+    const w4 = toIso(centerX - windowWidth / 2, room.y, windowZ + windowHeight);
+    
+    ctx.beginPath();
+    ctx.moveTo(w1.x, w1.y);
+    ctx.lineTo(w2.x, w2.y);
+    ctx.lineTo(w3.x, w3.y);
+    ctx.lineTo(w4.x, w4.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+function drawRoof(ctx, toIso, size, baseZ) {
+    const roofHeight = 15;
+    const roofColor = '#dc2626';
+    const roofEdgeColor = '#991b1b';
+    
+    // Pitched roof
+    const apex = toIso(size / 2, size / 2, baseZ + roofHeight);
+    
+    // Front face
+    ctx.fillStyle = roofColor;
+    ctx.strokeStyle = roofEdgeColor;
+    ctx.lineWidth = 2;
+    
+    const corners = [
+        toIso(0, 0, baseZ),
+        toIso(size, 0, baseZ),
+        toIso(size, size, baseZ),
+        toIso(0, size, baseZ)
+    ];
+    
+    // Front slope
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x, corners[0].y);
+    ctx.lineTo(corners[1].x, corners[1].y);
+    ctx.lineTo(apex.x, apex.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // Right slope
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.moveTo(corners[1].x, corners[1].y);
+    ctx.lineTo(corners[2].x, corners[2].y);
+    ctx.lineTo(apex.x, apex.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // Back slope
+    ctx.fillStyle = '#7f1d1d';
+    ctx.beginPath();
+    ctx.moveTo(corners[2].x, corners[2].y);
+    ctx.lineTo(corners[3].x, corners[3].y);
+    ctx.lineTo(apex.x, apex.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // Left slope
+    ctx.fillStyle = '#991b1b';
+    ctx.beginPath();
+    ctx.moveTo(corners[3].x, corners[3].y);
+    ctx.lineTo(corners[0].x, corners[0].y);
+    ctx.lineTo(apex.x, apex.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+function drawBox3DRealistic(ctx, toIso, x, y, z, width, depth, height, color, hollow = false) {
+    const baseColor = color;
+    const topColor = color;
+    const sideColor = adjustColor(color, -20);
+    
+    // Top face
+    ctx.fillStyle = topColor;
+    ctx.strokeStyle = adjustColor(color, -40);
+    ctx.lineWidth = 1;
     ctx.beginPath();
     const top = [
         toIso(x, y, z + height),
@@ -836,11 +1543,11 @@ function drawBox3D(ctx, toIso, x, y, z, width, depth, height, color) {
     ctx.moveTo(top[0].x, top[0].y);
     top.forEach(p => ctx.lineTo(p.x, p.y));
     ctx.closePath();
-    ctx.fill();
+    if (!hollow) ctx.fill();
     ctx.stroke();
     
-    // Right
-    ctx.fillStyle = color + '99';
+    // Right face
+    ctx.fillStyle = sideColor;
     ctx.beginPath();
     const right = [
         toIso(x + width, y, z),
@@ -851,11 +1558,11 @@ function drawBox3D(ctx, toIso, x, y, z, width, depth, height, color) {
     ctx.moveTo(right[0].x, right[0].y);
     right.forEach(p => ctx.lineTo(p.x, p.y));
     ctx.closePath();
-    ctx.fill();
+    if (!hollow) ctx.fill();
     ctx.stroke();
     
-    // Left
-    ctx.fillStyle = color + '66';
+    // Left face
+    ctx.fillStyle = adjustColor(color, -30);
     ctx.beginPath();
     const left = [
         toIso(x, y, z),
@@ -866,38 +1573,130 @@ function drawBox3D(ctx, toIso, x, y, z, width, depth, height, color) {
     ctx.moveTo(left[0].x, left[0].y);
     left.forEach(p => ctx.lineTo(p.x, p.y));
     ctx.closePath();
-    ctx.fill();
+    if (!hollow) ctx.fill();
     ctx.stroke();
 }
 
+function adjustColor(color, amount) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+    const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+}
+
 function drawCompass3D(ctx, x, y) {
-    const size = 40;
+    const size = 50;
     
-    ctx.strokeStyle = '#475569';
-    ctx.lineWidth = 2;
+    // Circle
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
     ctx.stroke();
     
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.arc(x, y, size - 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // North arrow (red)
     ctx.fillStyle = '#ef4444';
     ctx.beginPath();
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x - 8, y - 10);
-    ctx.lineTo(x, y - 15);
-    ctx.lineTo(x + 8, y - 10);
+    ctx.moveTo(x, y - size + 5);
+    ctx.lineTo(x - 10, y);
+    ctx.lineTo(x, y - size * 0.5);
+    ctx.lineTo(x + 10, y);
     ctx.closePath();
     ctx.fill();
     
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 14px sans-serif';
+    // South arrow (white)
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x, y + size - 5);
+    ctx.lineTo(x - 10, y);
+    ctx.lineTo(x, y + size * 0.5);
+    ctx.lineTo(x + 10, y);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Labels
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('N', x, y - size - 10);
-    ctx.fillText('S', x, y + size + 20);
-    ctx.fillText('E', x + size + 15, y + 5);
-    ctx.fillText('W', x - size - 15, y + 5);
+    ctx.fillText('N', x, y - size - 15);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText('S', x, y + size + 25);
+    ctx.fillText('E', x + size + 20, y + 5);
+    ctx.fillText('W', x - size - 20, y + 5);
 }
 
-// Report Generation
+function drawSun(ctx, x, y) {
+    // Sun
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(x, y, 30, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Rays
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI * 2 / 8) * i;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(angle) * 35, y + Math.sin(angle) * 35);
+        ctx.lineTo(x + Math.cos(angle) * 50, y + Math.sin(angle) * 50);
+        ctx.stroke();
+    }
+}
+
+function drawTree(ctx, toIso, x, y, z) {
+    // Trunk
+    const trunk = [
+        toIso(x, y, z),
+        toIso(x + 3, y, z),
+        toIso(x + 3, y + 3, z),
+        toIso(x, y + 3, z)
+    ];
+    
+    ctx.fillStyle = '#78350f';
+    ctx.beginPath();
+    ctx.moveTo(trunk[0].x, trunk[0].y);
+    trunk.forEach(t => ctx.lineTo(t.x, t.y));
+    ctx.closePath();
+    ctx.fill();
+    
+    // Trunk height
+    const trunkTop = [
+        toIso(x, y, z + 10),
+        toIso(x + 3, y, z + 10),
+        toIso(x + 3, y + 3, z + 10),
+        toIso(x, y + 3, z + 10)
+    ];
+    
+    ctx.fillStyle = '#92400e';
+    ctx.beginPath();
+    ctx.moveTo(trunk[0].x, trunk[0].y);
+    ctx.lineTo(trunkTop[0].x, trunkTop[0].y);
+    ctx.lineTo(trunkTop[1].x, trunkTop[1].y);
+    ctx.lineTo(trunk[1].x, trunk[1].y);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Foliage
+    const foliageCenter = toIso(x + 1.5, y + 1.5, z + 15);
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath();
+    ctx.arc(foliageCenter.x, foliageCenter.y, 20, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#16a34a';
+    ctx.beginPath();
+    ctx.arc(foliageCenter.x - 5, foliageCenter.y - 5, 15, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// Report Generation (keeping existing function)
 function renderReport() {
     const totalArea = calculateTotalArea();
     const utilizationPercent = (totalArea / appState.plotData.sizeInSqFt) * 100;
@@ -993,7 +1792,7 @@ function renderReport() {
                     ${groundFloor.map(room => `
                         <li>
                             <span>${ROOM_LABELS[room.type]} ×${room.count}</span>
-                            <span style="color: #64748b;">${ROOM_SIZES[room.type] * room.count} sq ft</span>
+                            <span style="color: #64748b;">${(room.size || ROOM_SIZES[room.type]) * room.count} sq ft</span>
                         </li>
                     `).join('')}
                 </ul>
@@ -1006,7 +1805,7 @@ function renderReport() {
                         ${firstFloor.map(room => `
                             <li>
                                 <span>${ROOM_LABELS[room.type]} ×${room.count}</span>
-                                <span style="color: #64748b;">${ROOM_SIZES[room.type] * room.count} sq ft</span>
+                                <span style="color: #64748b;">${(room.size || ROOM_SIZES[room.type]) * room.count} sq ft</span>
                             </li>
                         `).join('')}
                     </ul>
