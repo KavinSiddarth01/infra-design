@@ -50,11 +50,15 @@ body {
 }
 
 .splash-icon-home {
-    animation: bounce 1s infinite;
+    margin-left: 5px;
+    margin-top: 10px;
 }
 
 .splash-icon-compass {
     animation: spin 3s linear infinite;
+    width: 34px;
+    height: 34px;
+    stroke: gold;
 }
 
 @keyframes bounce {
