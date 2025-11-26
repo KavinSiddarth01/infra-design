@@ -790,6 +790,67 @@ function changeView(view) {
     renderStep();
 }
 
+// Generate room dimensions summary table
+function generateRoomDimensionsTable() {
+    if (appState.rooms.length === 0) return '';
+    
+    let totalArea = 0;
+    const roomDetails = appState.rooms.map(room => {
+        const area = room.size || ROOM_SIZES[room.type];
+        totalArea += area * room.count;
+        
+        // Calculate approximate dimensions
+        const ratio = 1.5; // typical room ratio
+        const widthInFeet = Math.round(Math.sqrt(area * ratio));
+        const heightInFeet = Math.round(area / widthInFeet);
+        
+        return {
+            name: ROOM_LABELS[room.type],
+            floor: room.floor === 1 ? 'Ground' : 'First',
+            dimensions: `${widthInFeet}' × ${heightInFeet}'`,
+            area: area,
+            count: room.count,
+            total: area * room.count
+        };
+    });
+    
+    return `
+        <div class="info-box" style="margin-top: 1.5rem; background: #f8fafc; border: 2px solid #e2e8f0;">
+            <div style="overflow-x: auto;">
+                <h4 style="margin-bottom: 1rem; color: #1e293b;">📐 Room Dimensions Summary</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr style="background: #e2e8f0; text-align: left;">
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Room</th>
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Floor</th>
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Dimensions</th>
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Area (sq ft)</th>
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Count</th>
+                            <th style="padding: 0.75rem; border: 1px solid #cbd5e1;">Total (sq ft)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${roomDetails.map((room, index) => `
+                            <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1; font-weight: 500;">${room.name}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1;">${room.floor}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1; font-family: monospace; color: #2563eb;">${room.dimensions}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1; text-align: right;">${room.area}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1; text-align: center;">${room.count}</td>
+                                <td style="padding: 0.75rem; border: 1px solid #cbd5e1; text-align: right; font-weight: 600;">${room.total}</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="background: #dbeafe; font-weight: bold;">
+                            <td colspan="5" style="padding: 0.75rem; border: 1px solid #cbd5e1; text-align: right;">TOTAL BUILT-UP AREA:</td>
+                            <td style="padding: 0.75rem; border: 1px solid #cbd5e1; text-align: right; color: #1e40af;">${totalArea} sq ft</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
 function renderVisualizationContent() {
     const container = document.getElementById('visualizationContent');
     
@@ -797,6 +858,7 @@ function renderVisualizationContent() {
         container.innerHTML = `
             <h3 style="margin-bottom: 1rem;">2D Architectural Floor Plan with Details</h3>
             <canvas id="canvas2d"></canvas>
+            ${generateRoomDimensionsTable()}
             <div class="legend">
                 ${Object.keys(ROOM_COLORS).map(type => `
                     <div class="legend-item">
@@ -806,109 +868,150 @@ function renderVisualizationContent() {
                 `).join('')}
             </div>
         `;
-        setTimeout(() => draw2DFloorPlan(), 100);
+        setTimeout(() => {
+            if (typeof draw2DFloorPlan_Sketch !== 'undefined') {
+                draw2DFloorPlan_Sketch();
+            } else {
+                draw2DFloorPlan();
+            }
+        }, 100);
     } else if (currentView === '3d') {
         container.innerHTML = `
-            <h3 style="margin-bottom: 1rem;">3D Realistic Isometric Building View</h3>
+            <h3 style="margin-bottom: 1rem;">3D Isometric Sketch View</h3>
             <canvas id="canvas3d"></canvas>
+            ${generateRoomDimensionsTable()}
             <div class="info-box blue" style="margin-top: 1rem;">
                 <p style="font-size: 0.875rem;">
-                    Ground floor shown with complete structure. First floor (if present) shown elevated with roof.
-                    Walls, windows, doors, and architectural details are included for realism.
+                    Hand-drawn architectural sketch showing 3D isometric view with rooms, roof, and layout details in a neat sketch style.
                 </p>
             </div>
         `;
-        setTimeout(() => draw3DFloorPlan(), 100);
+        setTimeout(() => {
+            if (typeof draw3DFloorPlan_Clean !== 'undefined') {
+                draw3DFloorPlan_Clean();
+            } else {
+                draw3DFloorPlan();
+            }
+        }, 100);
     } else {
         container.innerHTML = renderReport();
     }
 }
 
-// Enhanced 2D Floor Plan with walls, doors, windows
+// Simple 2D Floor Plan - Clean and minimal
 function draw2DFloorPlan() {
     const canvas = document.getElementById('canvas2d');
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
     const width = Math.min(1400, window.innerWidth - 100);
-    const height = 800;
+    const height = 900;
     canvas.width = width;
     canvas.height = height;
     
     ctx.clearRect(0, 0, width, height);
     
-    const padding = 80;
+    const padding = 120;
     const plotWidth = width - padding * 2;
-    const plotHeight = height - padding * 2;
+    const plotHeight = height - padding * 2 - 150;
     
-    // Background
-    ctx.fillStyle = '#f8fafc';
+    // Clean white background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
     
-    // Draw plot boundary with shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(padding, padding, plotWidth, plotHeight);
-    ctx.shadowColor = 'transparent';
-    
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(padding, padding, plotWidth, plotHeight);
-    
-    // Draw compass rose
-    drawCompassRose(ctx, width / 2, padding - 40, 30);
-    
-    // Draw directional labels
-    ctx.fillStyle = '#475569';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('NORTH', width / 2, padding - 50);
-    ctx.fillText('SOUTH', width / 2, height - padding + 70);
-    
-    ctx.save();
-    ctx.translate(padding - 60, height / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('WEST', 0, 0);
-    ctx.restore();
-    
-    ctx.save();
-    ctx.translate(width - padding + 60, height / 2);
-    ctx.rotate(Math.PI / 2);
-    ctx.fillText('EAST', 0, 0);
-    ctx.restore();
-    
-    // Draw grid
-    ctx.strokeStyle = '#e2e8f0';
+    // Light grid
+    ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 0.5;
-    for (let i = 1; i < 10; i++) {
-        const x = padding + (plotWidth / 10) * i;
-        const y = padding + (plotHeight / 10) * i;
+    for (let x = 0; x < width; x += 40) {
         ctx.beginPath();
-        ctx.moveTo(x, padding);
-        ctx.lineTo(x, padding + plotHeight);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
         ctx.stroke();
+    }
+    for (let y = 0; y < height; y += 40) {
         ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(padding + plotWidth, y);
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
         ctx.stroke();
     }
     
-    // Draw rooms by floor
-    const groundFloor = appState.rooms.filter(r => r.floor === 1);
-    const firstFloor = appState.rooms.filter(r => r.floor === 2);
+    // Title
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 24px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('2D Floor Plan', width / 2, 50);
     
+    // Plot boundary
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(padding, padding, plotWidth, plotHeight);
+    
+    // Directional labels
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.fillText('N ↑', width / 2, padding - 40);
+    ctx.fillText('S ↓', width / 2, padding + plotHeight + 50);
+    ctx.fillText('W ←', padding - 40, padding + plotHeight / 2);
+    ctx.fillText('E →', padding + plotWidth + 40, padding + plotHeight / 2);
+    
+    // Draw rooms
+    const groundFloor = appState.rooms.filter(r => r.floor === 1);
     const groundLayout = generateRoomLayout(groundFloor, plotWidth, plotHeight);
     
     ctx.save();
     ctx.translate(padding, padding);
-    drawFloor2DRealistic(ctx, groundLayout, plotWidth, plotHeight, 'GROUND FLOOR');
+    drawSimple2DRooms(ctx, groundLayout);
     ctx.restore();
     
-    // Add scale
-    drawScale(ctx, padding, height - padding + 40, 100);
+    // Draw dimensions table
+    drawDimensionsTable2D(ctx, width, height - 130);
+}
+
+function drawSimple2DRooms(ctx, roomLayout) {
+    roomLayout.forEach((room) => {
+        const color = ROOM_COLORS[room.type];
+        const area = room.size || ROOM_SIZES[room.type];
+        
+        // Room fill with opacity
+        ctx.fillStyle = color + '40';
+        ctx.fillRect(room.x, room.y, room.width, room.height);
+        
+        // Room border
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(room.x, room.y, room.width, room.height);
+        
+        // Room label
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 14px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const centerX = room.x + room.width / 2;
+        const centerY = room.y + room.height / 2;
+        
+        ctx.fillText(ROOM_LABELS[room.type], centerX, centerY - 10);
+        
+        // Area
+        ctx.font = '12px Arial, sans-serif';
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(area + ' sq ft', centerX, centerY + 8);
+        
+        // Direction
+        if (room.direction) {
+            ctx.font = '11px Arial, sans-serif';
+            ctx.fillStyle = color;
+            ctx.fillText('(' + room.direction + ')', centerX, centerY + 22);
+        }
+        
+        // Main entrance indicator
+        if (room.type === 'main_entrance') {
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(room.x + room.width / 2 - 15, room.y - 8, 30, 8);
+            ctx.font = 'bold 10px Arial, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('ENTRANCE', room.x + room.width / 2, room.y - 2);
+        }
+    });
 }
 
 function drawCompassRose(ctx, x, y, size) {
@@ -1001,25 +1104,120 @@ function drawFloor2DRealistic(ctx, roomLayout, plotWidth, plotHeight, label) {
         // Add furniture/fixtures
         drawFurniture(ctx, room);
         
-        // Room label
+        // Calculate dimensions in feet from area
+        const area = room.size || ROOM_SIZES[room.type];
+        const widthInFeet = Math.round(Math.sqrt(area * (room.width / room.height)));
+        const heightInFeet = Math.round(area / widthInFeet);
+        
+        // Room label - centered and prominent
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 14px sans-serif';
+        ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(ROOM_LABELS[room.type], room.x + room.width / 2, room.y + 10);
+        ctx.textBaseline = 'middle';
+        const labelY = room.y + room.height / 2;
+        ctx.fillText(ROOM_LABELS[room.type], room.x + room.width / 2, labelY - 15);
         
         // Direction label
         if (room.direction) {
             ctx.fillStyle = color;
             ctx.font = '11px sans-serif';
-            ctx.fillText(room.direction, room.x + room.width / 2, room.y + 30);
+            ctx.fillText(`(${room.direction})`, room.x + room.width / 2, labelY);
         }
         
-        // Area label
+        // Dimensions display - area and dimensions
         ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`${area} sq ft`, room.x + room.width / 2, labelY + 15);
+        
         ctx.font = '10px sans-serif';
-        ctx.fillText(`${room.size || ROOM_SIZES[room.type]} sq ft`, room.x + room.width / 2, room.y + room.height - 10);
+        ctx.fillText(`${widthInFeet}' × ${heightInFeet}'`, room.x + room.width / 2, labelY + 28);
+        
+        // Draw dimension lines with measurements (only if room is large enough)
+        if (room.width > 80 && room.height > 80) {
+            drawDimensionLine(ctx, room, widthInFeet, heightInFeet);
+        }
     });
+}
+
+// New function to draw dimension lines
+function drawDimensionLine(ctx, room, widthFt, heightFt) {
+    ctx.strokeStyle = '#94a3b8';
+    ctx.fillStyle = '#64748b';
+    ctx.lineWidth = 1;
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const arrowSize = 4;
+    const offset = 8;
+    
+    // Horizontal dimension (width) - top
+    const topY = room.y - offset;
+    const leftX = room.x + 5;
+    const rightX = room.x + room.width - 5;
+    
+    // Draw line
+    ctx.beginPath();
+    ctx.moveTo(leftX, topY);
+    ctx.lineTo(rightX, topY);
+    ctx.stroke();
+    
+    // Draw arrows
+    ctx.beginPath();
+    ctx.moveTo(leftX, topY);
+    ctx.lineTo(leftX + arrowSize, topY - arrowSize);
+    ctx.lineTo(leftX + arrowSize, topY + arrowSize);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(rightX, topY);
+    ctx.lineTo(rightX - arrowSize, topY - arrowSize);
+    ctx.lineTo(rightX - arrowSize, topY + arrowSize);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw width measurement
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(room.x + room.width / 2 - 15, topY - 7, 30, 14);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(`${widthFt}'`, room.x + room.width / 2, topY);
+    
+    // Vertical dimension (height) - left
+    const leftLineX = room.x - offset;
+    const topLineY = room.y + 5;
+    const bottomLineY = room.y + room.height - 5;
+    
+    // Draw line
+    ctx.beginPath();
+    ctx.moveTo(leftLineX, topLineY);
+    ctx.lineTo(leftLineX, bottomLineY);
+    ctx.stroke();
+    
+    // Draw arrows
+    ctx.beginPath();
+    ctx.moveTo(leftLineX, topLineY);
+    ctx.lineTo(leftLineX - arrowSize, topLineY + arrowSize);
+    ctx.lineTo(leftLineX + arrowSize, topLineY + arrowSize);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(leftLineX, bottomLineY);
+    ctx.lineTo(leftLineX - arrowSize, bottomLineY - arrowSize);
+    ctx.lineTo(leftLineX + arrowSize, bottomLineY - arrowSize);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw height measurement with rotation
+    ctx.save();
+    ctx.translate(leftLineX, room.y + room.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-15, -7, 30, 14);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(`${heightFt}'`, 0, 0);
+    ctx.restore();
 }
 
 function drawDoor(ctx, room, allRooms) {
@@ -1427,12 +1625,35 @@ function drawFloor3DRealistic(ctx, toIso, roomLayout, plotSize, floorZ, floorHei
             drawWindow3D(ctx, toIso, room, floorZ, floorHeight);
         }
         
-        // Room label
+        // Calculate dimensions in feet from area
+        const area = room.size || ROOM_SIZES[room.type];
+        const widthInFeet = Math.round(Math.sqrt(area * (room.width / room.height)));
+        const heightInFeet = Math.round(area / widthInFeet);
+        
+        // Room label with dimensions - positioned above the room
         const labelPos = toIso(room.x + room.width / 2, room.y + room.height / 2, floorZ + floorHeight + 5);
+        
+        // Room name
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(ROOM_LABELS[room.type], labelPos.x, labelPos.y);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ROOM_LABELS[room.type], labelPos.x, labelPos.y - 8);
+        
+        // Direction label
+        if (room.direction) {
+            ctx.fillStyle = color;
+            ctx.font = '10px sans-serif';
+            ctx.fillText(`(${room.direction})`, labelPos.x, labelPos.y + 3);
+        }
+        
+        // Dimensions - area and physical dimensions
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(`${area} sq ft`, labelPos.x, labelPos.y + 14);
+        
+        ctx.font = '9px sans-serif';
+        ctx.fillText(`${widthInFeet}' × ${heightInFeet}'`, labelPos.x, labelPos.y + 25);
     });
 }
 
@@ -1694,6 +1915,91 @@ function drawTree(ctx, toIso, x, y, z) {
     ctx.beginPath();
     ctx.arc(foliageCenter.x - 5, foliageCenter.y - 5, 15, 0, Math.PI * 2);
     ctx.fill();
+}
+
+// Draw Dimensions Table for 2D View
+function drawDimensionsTable2D(ctx, canvasWidth, startY) {
+    if (appState.rooms.length === 0) return;
+    
+    const tableX = 60;
+    const tableWidth = canvasWidth - 120;
+    const rowHeight = 22;
+    const headerHeight = 28;
+
+    // Draw table title
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('DIMENSIONS SUMMARY', tableX, startY - 12);
+
+    // Draw header background
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(tableX, startY, tableWidth, headerHeight);
+
+    // Draw header text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('ROOM NAME', tableX + 10, startY + 18);
+    ctx.fillText('DIMENSIONS', tableX + tableWidth * 0.45, startY + 18);
+    ctx.fillText('AREA', tableX + tableWidth * 0.7, startY + 18);
+
+    // Draw rows
+    let currentY = startY + headerHeight;
+    let totalArea = 0;
+
+    // Group rooms by type
+    const roomGroups = new Map();
+    appState.rooms.forEach(room => {
+        const area = room.size || ROOM_SIZES[room.type];
+        const label = ROOM_LABELS[room.type];
+        if (roomGroups.has(label)) {
+            const existing = roomGroups.get(label);
+            existing.area += area * room.count;
+            existing.count += room.count;
+        } else {
+            roomGroups.set(label, { area: area * room.count, count: room.count });
+        }
+    });
+
+    let rowIndex = 0;
+    roomGroups.forEach((data, roomName) => {
+        const widthFeet = Math.round(Math.sqrt(data.area * 1.5));
+        const heightFeet = Math.round(data.area / widthFeet);
+
+        // Alternate row colors
+        ctx.fillStyle = rowIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+        ctx.fillRect(tableX, currentY, tableWidth, rowHeight);
+
+        // Draw border
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tableX, currentY, tableWidth, rowHeight);
+
+        // Draw text
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '11px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(roomName + (data.count > 1 ? ' (×' + data.count + ')' : ''), tableX + 10, currentY + 15);
+        ctx.fillText(widthFeet + '\' × ' + heightFeet + '\'', tableX + tableWidth * 0.45, currentY + 15);
+        ctx.fillText(data.area.toFixed(0) + ' sq ft', tableX + tableWidth * 0.7, currentY + 15);
+
+        totalArea += data.area;
+        currentY += rowHeight;
+        rowIndex++;
+    });
+
+    // Draw total row
+    ctx.fillStyle = '#dbeafe';
+    ctx.fillRect(tableX, currentY, tableWidth, headerHeight);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tableX, currentY, tableWidth, headerHeight);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 12px Arial, sans-serif';
+    ctx.fillText('TOTAL BUILT-UP AREA', tableX + 10, currentY + 18);
+    ctx.fillText(totalArea.toFixed(0) + ' sq ft', tableX + tableWidth * 0.7, currentY + 18);
 }
 
 // Report Generation (keeping existing function)
